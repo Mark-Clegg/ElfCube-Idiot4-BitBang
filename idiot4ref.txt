@@ -1,0 +1,337 @@
+THE MACHINE-LEVEL MONITOR
+
+While many applications can be programmed completely in Tiny BASIC,
+there will be some tasks that need higher performance. In such
+cases, some or all of the program can be written in machine language
+using the machine-level monitor program IDIOT/4. Machine language
+offers great flexibility and much faster program execution, at the
+expense of being much harder to write and debug. To use the monitor
+properly, you will need a good working knowledge of the COSMAC
+microprocessor and its instruction set. You should also have a copy
+of the RCA "User Manual for the CDP1802 COSMAC Microprocessor",
+publication MPM-201, available from RCA or TMSI.
+
+The IDIOT/4 monitor provides direct access to the COSMAC
+microprocessor and all system memory and I/O. You can examine and
+change the contents of memory, CPU registers, and I/O bits EF1-4 and
+Q; load and dump programs to your terminal or mass-storage media
+(paper tape, cassette, etc.); block move memory contents from one
+place to another, and run and debug programs with or without
+breakpoints. The command and data formats are the same as used by
+RCA's UT4-UT20 series monitor programs. IDIOT/4 can also be used the
+RCA Editor and Assembler software for more advanced applications.
+
+Operation
+
+There are three ways to enter the monitor. To enter from Tiny BASIC,
+use the USR(32) function in a command or program statement; (for
+example, "PRINT USR(32)". From a machine language program, call the
+monitor with a "SEP R1" instruction (hex D1). Finally, if interrupts
+are enabled, you can call the monitor with a hardware interrupt (by
+pulling the COSMAC's INTERRUPT pin 36 low with a pushbutton switch
+for example).
+
+[The stand-alone IDIOT monitor begins at its lowest address. Since the
+monitor code has no long-jumps, IDIOT can be loaded at ANY page boundary.
+The stand-alone version runs with serial at 7 bit "mark" parity; 
+1200 baud or slower. After entering the monitor, it expects a "CR" to
+determine what baud rate to run. - Herb] 
+
+In each case, the monitor first saves a copy of all CPU registers
+and I/O bits EF1-4 and Q in RAM. All registers are saved correctly
+except T (and possibly P and X as described later in the IDIOT
+Monitor Summary). The monitor then types its "*" prompt and is ready
+for your commands.
+
+Commands consist of a punctuation character (?, !, or $) followed
+immediately by a letter (M, P, or R). All other characters will be
+printed on your terminal, but otherwise ignored. This feature lets
+you type in messages, comments, or text for documentation purposes,
+or just to check the terminal-to-computer I/O interface.
+
+The commands to IDIOT/4 are ?M (examine memory), !M (change memory),
+?R (examine registers), $R (run registers), and $P (run program).
+All numbers are in hexadecimal, and leading zeros are unnecessary.
+
+Spaces, line feeds, etc. can be used where not ambiguous to improve
+readability. If the monitor detects a syntax error, it aborts the
+command and types a "?" to indicate that it didn't understand it.
+Commands are executed as they are typed in, so the "rubout" or
+"backspace" keys cannot be used to correct errors. When a command
+has been correctly executed, the monitor again types its "*" prompt
+and is ready for the next command.
+
+
+Examine Memory Command
+
+        ?Maaaa nnnn <CR>
+
+The "?M" command lists the contents of "nnnn" bytes of memory
+starting at address "aaaa". Following the <CR>, the monitor types
+the address as 4 hex digits, and then up to 16 data bytes of memory.
+The data bytes are paired into 2-byte (4-digit) groups. A new line
+is started every 16 bytes, with a semicolon ";" at the end of the
+line to indicate that the listing is continued on the next line. A
+final "*" indicates the end. Examples:
+
+        ?M20 3<CR>          (user types)
+        0020 C006 6F        (monitor prints)
+
+        ?M240023 4<CR>      (oops! corrected 0024 by typing 0023)
+        0023 C0 0BFE        (monitor prints)
+
+        ?M26 4Z<CR>         (syntax error; 4Z isn't hex)
+        ?                   (monitor prints "?" to indicate error)
+
+        ?M0000 20<CR>
+        0000 7100 E4C0 0800 C009 40C0 09A4 C006 665F;
+        0010 1882 8020 97BA 48D5 58D5 0679 1100 0010
+
+All numbers are in hexadecimal. Leading zeros are unnecessary. If
+more than 4 digits are typed for the address or byte count, only the
+last 4 are used; thus you can correct an error by simply following
+it with the correct number. For instance, the second example shows
+address 0024 was corrected to 0023. A long listing can be aborted by
+hitting your terminal's BREAK (or any other key repeatedly.
+
+The format used by ?M is suitable for saving data on your terminal's
+mass storage facility (paper tape, cassette, etc.). Before typing
+the final <CR>, turn on your punch or recorder. The monitor will
+ignore any spaces, nulls, or text you type as a header. Then type
+the final <CR> and the monitor will start outputting data. The
+resulting tape can then be used by the !M command to load memory.
+
+
+Change Memory Command
+
+        !Maaaa dd .... dd <CR>
+        !Maaaa dd .... dd, comments <CR>
+               dd .... dd
+        !Maaaa dd .... dd; comments <CR>
+          aaaa dd .... dd
+
+The !M command writes data byte pairs "dd" into successive memory
+locations, starting at address "aaaa". The data bytes are written
+into memory as soon as they are typed, without waiting for the final
+<CR>. They must come in pairs of hex digits, or a syntax error will
+occur. Otherwise, nulls, spaces, and other non-hex characters are
+ignored by the monitor, and can be used to improve readability. A
+final <CR> ends the command.
+
+Two optional forms are provided for loading more data than will fit
+on one line. If you type a comma "," anything up to the final <CR>
+will be ignored, and memory loading will resume on the next line at
+the next sequential address. Similarly, a semicolon ";" also ignores
+anything you type up to the final <CR>; memory loading continues on
+the next line at a new address specified by the first hex number on
+the line. This allows changing non-sequential bytes of memory. The
+following examples illustrate the use of the !M command.
+
+        !M1000 001122 <CR>  (user types)
+        *                   (monitor writes 00 to address 1000,
+                             11 to address 1001, and 22 to 1002)
+
+        !M20031003 3344<CR> (oops! corrected 2003 to 1003)
+        *                   (monitor writes 33 to 1003, 44 to 1004)
+
+        !M1005 55 6X <CR>   (syntax error; 4Z isn't hex)
+        ?                   (monitor writes 55 to 1005, but then
+                             prints "?" to indicate error)
+
+        !M1006 66 77 88, comma makes it ignore comments <CR>
+        99 AA BB,        like these <CR>
+        CC <CR>             (this ends the Change Memory command)
+        *
+
+        !M100D DD; HERE: ORG 100Dh, SEP 13 semicolons let you <CR>
+        100E EE;         DB 0EEh  load assembler files with a <CR>
+        100E FF;         DB 0EEh  new address for each line   <CR>
+        1010 <CR>           (ends command)
+        *
+
+        ?M1000 10 <CR>      (use ?M to examine the results)
+        1000 0011 2233 4455 6677 8899 AABB CCDD EEFF;
+        *
+
+As with the ?M command, an erroneous address can be corrected by
+just following it with the corrected one; only the last 4 digits
+count. The third example shows a syntax error; the 55 gets written
+into memory, but the 6X does not -- it had to be re-typed on the
+following line. The last example shows the contents of memory after
+this series of !M commands.
+
+The !M command will accept data produced by the ?M command. Simply
+type "!M;" without a final <CR>, then turn on your terminal's
+reader. Everything will be ignored (because of the semicolon) until
+the first <CR> is read from the tape. This should be followed with
+the first address, and then the data bytes to be loaded. The !M
+command will also load listings produced by the RCA assembler.
+
+Move Memory Command
+
+The ?M and !M commands can be used together to move a block of
+"nnnn" bytes of memory from address "aaaa" to "bbbb". Any size block
+can be moved, and overlapping blocks can be moved without error. The
+following examples illustrate the block move.
+
+        ?M0 10 !M1000 <CR>       (moves 10 bytes from 0 to 1000)
+        *
+
+        ?MC00 230024 !M1C00 <CR> (oops; corrected byte count to 24)
+        *
+
+        ?M0 10000 !M1 <CR>       (move entire memory up 1 byte)
+        *
+
+        ?M1234 56X               (syntax error; 56X is not hex)
+        ?
+
+The first example moves 10 hex (16 decimal) bytes starting at
+address 0000 to address 1000 hex. The addresses and byte count can be
+corrected using the last-4-digits rule as in the ?M and !M commands.
+The third example is the largest possible block move, and moves the
+entire contents of memory up one byte. But, since the IDIOT/4
+monitor is in ROM, it is write protected against damaging itself.
+But the Move Memory command can move anything in RAM, since it uses
+no RAM itself. Like ?M and !M, spaces can be used freely for
+readability, but non-hex characters will cause a syntax error.
+
+
+Examine Registers
+
+        ?R <CR>
+
+Upon entry, IDIOT/4 saves the state of the COSMAC CPU in RAM. This
+data can be listed using the ?R command. What actually happens is
+that ?R supplies the address and byte count, and performs a ?M to
+list the data. The following example shows the source of the data in
+each 4-byte pair of bytes in parentheses.
+
+        ?R <CR>
+        10B8 (ID,T) (DF,D) (IE,Q) (EF1-4);
+        10C0 (R0) (R1) (R2) (R3) (R4) (R5) (R6) (R7);
+        10D0 (R8) (R9) (RA) (RB) (RC) (RD) (RE) (RF)
+        *
+
+The first number on each line is the starting address for that line
+of register contents. For example, R1 is in location 10C2 and 10C3.
+
+The register contents are interpreted as follows:
+
+        ID - Identifies what caused the registers to be saved.
+                00 - power or hardware RESET
+                10 - hardware or software interrupt, or USR(32)
+         T - Contents of T register. Contains old X and P if entry
+                     was via a hardware interrupt
+        DF - Contents of DF flag
+                00 - DF=0
+                01 - DF=1
+         D - Contents of D register (accumulator)
+        IE - Status of Interrupt Enable bit
+                00 - interrupts disabled
+                01 - interrupts enabled
+         Q - Status of Q bit
+                00 - Q=0
+                01 - Q=1
+     EF1-4 - Status of external flags about 500 usec after entry
+                1xxx - EF1=1 (EF1 pin low)
+                0xxx - EF1=0 (EF1 pin high)
+                x2xx - EF2=1 (EF2 pin low)
+                x0xx - EF2=0 (EF2 pin high)
+                xx3x - EF3=1 (EF3 pin low)
+                xx0x - EF3=0 (EF3 pin high)
+                xxx4 - EF4=1 (EF4 pin low)
+                xxx0 - EF4=0 (EF4 pin high)
+     R0-RF - Contents of registers R0-RF; 4 hex digits each
+
+Saving CPU registers is a great aid in debugging machine-language
+programs. Breakpoints (SEP R1 instructions) can be inserted into a
+program with the !M command. When executed, the breakpoint saves the
+registers for analysis with the ?R command. If desired, the register
+values saved in RAM can be altered with the !M command. These values
+can then be restored to the registers, and program execution resumed
+where it left off with the $R command (described below).
+
+The COSMAC architecture places certain limitations on the accuracy
+of the saved registers. The COSMAC itself alters R0, P, X, and IE
+upon Reset, so their previous contents are lost. In addition, the
+monitor uses R4 as a pointer to RAM. Thus if the ID code is 00
+(Reset), registers R0, P, X, IE, and R4 will not show the actual
+values at the time of Reset.
+
+If the ID code is 10, entry was via a hardware interrupt (COSMAC
+Interrupt pin low) or a software interrupt (SEP 1 instruction).
+Register R1 must point to the interrupt handler and R2 must point
+into RAM with at least 4 free bytes for a stack. When the COSMAC
+responds to a hardware interrupt, it saves the old values of X and P
+in the T register; therefore the previous contents of T is lost.
+Otherwise, all registers are saved correctly.
+
+There are two ways to enter the monitor with a software interrupt
+(SEP 1). You can either save X and P; or T; but not both. To save T,
+insert a SEP 1 instruction in any machine-language program. To save
+X and P, insert a MARK and a SEP 1. MARK copies X and P into T, then
+pushes T onto the stack (via R2). Since MARK affects the stack and
+R2, the saved register contents should be interpreted accordingly.
+Other than this, all registers are saved correctly.
+
+
+Run Register Command
+
+        $R <CR>
+        $Rp <CR>
+        $Rxp <CR>
+
+The Run Register command restores all CPU registers (except T) to
+the values sown by the ?R command, and resumes program execution
+with these values. An optional value can be specified for X and P;
+if not specified, 0 is assumed. The following examples illustrate
+the use of the $R command.
+
+        $R <CR>          (restore register, and set X=0, P=0)
+        $R3 <CR>         (same, but set X=0, P=3)
+        $R23 <CR>	 (same, but set X=2, P=3)
+
+Since the Tiny BASIC USR function exits with X=2 and P=3, the last
+example will return to BASIC and resume execution right where it
+left off.
+
+There are a few precautions to observe when using $R to resume a
+program that was interrupted by a software interrupt (SEP 1)
+instruction:
+
+1. Be sure to restore the correct value of X and P.
+
+2. If a byte of the program was replaced by the SEP 1 (to insert a
+   breakpoint), execution will resume AFTER the SEP 1 and the
+   original instruction will not have been executed. You will have
+   to replace the SEP 1 with the original instruction, and decrement
+   the program counter by 1 so this instruction gets executed when
+   you resume.
+
+3. If the 2-byte sequence MARK, SEP 1 were substituted, two bytes
+   will need to be replaced with the original instructions, and the
+   program counter decremented by two to execute them. Also, R2 and
+   M(R2+1) will have to be corrected as well. These details can be
+   fixed by using !M to correct the RAM and register values saved in
+   RAM before using the $R command.
+
+
+Run Program Command
+
+        $Paaaa
+
+The Run Program Command begins execution of the program at address
+"aaaa" with X=0, P=0, and interrupts disabled (similar to the effect
+of a hardware reset). If no address is specified, execution begins
+at 0000.
+
+        $P100N           (syntax error; 100N is not hex)
+        ?
+
+        $P1000           (runs program at 1000 hex)
+
+The address must be a hexadecimal number. As for the ?M and !M
+commands, only the last 4 digits typed are used for the address. If
+you make a mistake, simply retype the correct address as the last
+four digits.

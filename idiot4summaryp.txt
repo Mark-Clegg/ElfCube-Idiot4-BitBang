@@ -1,0 +1,63 @@
+			TMSI IDIOT/4 Monitor Summary
+
+The monitor expects 7 bit serial MARK parity at 1200 baud or slower. Start
+the monitor at the lowest address of code; it will "look" for a "CR" character
+from your terminal to establish baud rate; then send "IDIOT" and the ? prompt.
+
+All inputs are echoed but ignored until one of the following commands is
+typed. All numbers are in hexadecimal. Follow each command with a <CR>.
+Backspace, Rubout, etc. aren't used. Spaces, Linefeeds, etc. can be used
+freely except if they cause ambiguity. Only the last 4 digits of byte
+counts and addresses are used; continue typing to correct errors.
+
+?Maaaa nnnn <CR>	Examine Memory: Lists nnnn bytes of memory
+			starting at address aaaa. Each line begins with
+			the address, followed by up to 16 data bytes in
+			groups of 2. If more, the line ends with a
+			semicolon (;) and the listing continues on the
+			next line.
+
+!Maaaa dd..dd; comment	Change Memory: Writes data byte pairs dd into
+  aaaa dd..dd, comment	successive locations beginning at address aaaa.
+       dd..dd <CR>	End the line with a semicolon (;) to continue
+			on the next line at a new address. End the line
+			with a comma (,) to continue on next line at the
+			next consecutive address. Comments after the ";"
+			or "," are ignored. Accepts ?M format.
+
+?Maaaa nnnn !Mbbbb <CR>	Move Memory: Moves a block of nnnn bytes of
+			memory from address aaaa to bbbb. Blocks can
+			be any size and can overlap without error.
+
+?R			Examine Registers: Lists 1802 registers as they
+			were saved in RAM at the time of entering the
+			monitor. Format is same as $M. Contents can be
+			altered using !M to change the memory image,
+			then $R to restore them. Example:
+	?R <CR)
+	10B8 (ID,T) (DF,D) (IE,Q) (EF1-4)
+	10C0 (R0) (R1) (R2) (R3) (R4) (R5) (R6) (R7);
+	10D0 (R8) (R9) (RA) (RB) (RC) (RD) (RE) (RF)
+	*
+
+$R <CR>			Run Registers: Restore 1802 registers to the
+$Rp <CR>		values shown by the ?R command, and begin
+$Rxp <CR>		execution with the specified values of X and P
+			(or 0 if not specified). Example: If entered
+			from BASIC, return with "$R23".
+
+$Paaaa <CR>             Run Program: Begin program execution at address
+			aaaa with X=0, P=0, and interrupts disabled.
+			"$P0" is the same as a hardware reset.
+
+Hardware Interrupt: If interrupts are enabled, a hardware interrupt
+enters the monitor and T contains the old X and P. Return with $R(T).
+
+Breakpoints (for programs in RAM): Replace 1 byte of program with SEP R1
+(D1) using !M. When executed, D1 saves all registers in RAM except P and
+X, and enters the monitor. To also save X and P, replace 2 bytes of
+program with MARK, SEP R1 (79, D1). MARK saves X and P in T and M(R2),
+and decrements R2.
+
+To resume after a breakpoint, restore the original bytes replaced in the
+program, adjust the program counter accordingly, and return with $Rxp.

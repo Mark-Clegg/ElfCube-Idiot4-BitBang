@@ -1,0 +1,15 @@
+# Temporary files
+*.bak
+*~
+*.tmp
+
+# Assembler output files
+*.bin
+*.hex
+*.lst
+*.idi
+
+# KDevelop project files
+.kdev4/
+*.kdev4
+*.kate-swp
